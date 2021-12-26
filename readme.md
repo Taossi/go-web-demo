@@ -1,8 +1,5 @@
-## **golang-web demo**
+# go-web-demo
 
-【持续更新ing】
+golang web demo
 
-一个golang实现的web demo
-
-所用框架：gin gorm
-
+gin + gorm实现
