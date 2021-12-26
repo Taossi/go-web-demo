@@ -10,9 +10,9 @@ import (
 var DB *gorm.DB
 
 /**
-MySQL数据库初始化
-需要修改相应的用户与密码
-*/
+ * @Description: MySQL数据库初始化 需要修改相应的用户与密码
+ * @return *gorm.DB
+ */
 func InitDB() *gorm.DB {
 	host := "localhost"
 	port := "3306"
