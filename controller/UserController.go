@@ -2,7 +2,9 @@ package controller
 
 import (
 	"gin-gorm/common"
+	"gin-gorm/dto"
 	"gin-gorm/model"
+	"gin-gorm/response"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -22,20 +24,14 @@ func UserRegister(c *gin.Context) {
 	name := c.PostForm("name")
 	phone := c.PostForm("phone")
 	password := c.PostForm("password")
+
 	//数据验证
 	if len(phone) != 11 {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"code":    422,
-			"message": "手机号格式不正确",
-		})
+		response.Response(c, http.StatusUnprocessableEntity, 422, nil, "手机号格式不正确")
 		return
 	}
-
 	if len(password) < 6 {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"code":    422,
-			"message": "密码不能少于6位",
-		})
+		response.Response(c, http.StatusUnprocessableEntity, 422, nil, "密码不能少于6位")
 		return
 	}
 	if len(name) == 0 {
@@ -45,22 +41,18 @@ func UserRegister(c *gin.Context) {
 
 	//判断手机号是否存在
 	if isPhoneExist(db, phone) {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"code":    422,
-			"message": "手机号已被注册，请重试",
-		})
+		response.Response(c, http.StatusUnprocessableEntity, 422, nil, "手机号已被注册，请重试")
 		return
 	}
+
 	//密码无法明文保存，需要加密
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "密码失败",
-		})
+		response.Response(c, http.StatusUnprocessableEntity, 422, nil, "加密失败")
 		return
 	}
 	log.Print(name, phone, hashedPassword)
+
 	//创建新用户 插入数据
 	newUser := model.User{
 		Name:     name,
@@ -68,11 +60,9 @@ func UserRegister(c *gin.Context) {
 		Password: string(hashedPassword),
 	}
 	db.Create(&newUser)
+
 	//返回结果
-	c.JSON(200, gin.H{
-		"code":    200,
-		"message": "注册成功",
-	})
+	response.Success(c, nil, "注册成功")
 	return
 }
 
@@ -85,49 +75,50 @@ func Login(c *gin.Context) {
 	//获取参数
 	phone := c.PostForm("phone")
 	password := c.PostForm("password")
+
 	//数据验证
 	if len(phone) != 11 {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"code":    422,
-			"message": "手机号格式不正确",
-		})
+		response.Response(c, http.StatusUnprocessableEntity, 422, nil, "手机号格式不正确")
 		return
 	}
 	if len(password) < 6 {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"code":    422,
-			"message": "密码不能少于6位",
-		})
+		response.Response(c, http.StatusUnprocessableEntity, 422, nil, "密码不能少于6位")
 		return
 	}
+
 	//判断手机号是否存在数据库
 	var user model.User
 	db.Where("phone = ?", phone).First(&user)
 	if user.ID == 0 {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"code":    422,
-			"message": "该用户不存在",
-		})
+		response.Response(c, http.StatusUnprocessableEntity, 422, nil, "该用户不存在")
 		return
 	}
+
 	//判断密码是否正确
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "密码错误",
-		})
+		response.Fail(c, nil, "密码错误")
 		return
 	}
+
 	//发放token
-	token := "111"
+	token, err := common.ReleaseToken(user)
+	if err != nil {
+		response.Fail(c, nil, "token错误")
+		return
+	}
+
 	//返回结果
-	c.JSON(200, gin.H{
-		"code": 200,
-		"data": gin.H{
-			"token": token,
-		},
-		"message": "登陆成功",
-	})
+	response.Success(c, gin.H{"token": token}, "登陆成功")
+	return
+}
+
+/**
+ * @Description: 从context上下文获取用户信息(此时已通过token验证)
+ */
+func Info(c *gin.Context) {
+	// 从上下文获取user
+	user, _ := c.Get("user")
+	response.Success(c, gin.H{"user": dto.ToUserDto(user.(model.User))}, "登陆成功") // 类型断言
 	return
 }
 
