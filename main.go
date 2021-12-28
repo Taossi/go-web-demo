@@ -1,6 +1,27 @@
 package main
 
+import (
+	"github.com/spf13/viper"
+	"os"
+)
+
 func main() {
+	InitConfig()
 	r := InitRouter()
+	port := viper.GetString("server.port")
+	if port != "" {
+		panic(r.Run(":" + port))
+	}
 	panic(r.Run())
+}
+
+func InitConfig() {
+	workDir, _ := os.Getwd()
+	viper.SetConfigName("application")
+	viper.SetConfigType("yml")
+	viper.AddConfigPath(workDir + "/config")
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic("")
+	}
 }
